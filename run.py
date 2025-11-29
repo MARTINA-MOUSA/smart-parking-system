@@ -23,14 +23,37 @@ def process_video(video_path: str, output_path: str = None, display: bool = True
         output_path: Optional path to save output video
         display: Whether to display video in window
     """
-    logger.info(f"Starting video processing: {video_path}")
+    # Resolve video path
+    video_file = Path(video_path)
+    if not video_file.is_absolute():
+        video_file = Path.cwd() / video_file
+    
+    logger.info(f"Starting video processing: {video_file}")
+    
+    # Check if video file exists before initializing components
+    if not video_file.exists():
+        logger.error(
+            f"Video file not found: {video_file}\n"
+            f"Current working directory: {Path.cwd()}\n"
+            f"Please ensure the video file exists at the specified path."
+        )
+        return
     
     # Initialize components
-    detector = ParkingSpotDetector(str(settings.get_mask_path()))
-    predictor = ParkingSpotPredictor(
-        str(settings.get_model_path()),
-        resize_size=(settings.RESIZE_WIDTH, settings.RESIZE_HEIGHT)
-    )
+    try:
+        detector = ParkingSpotDetector(str(settings.get_mask_path()))
+    except Exception as e:
+        logger.error(f"Failed to initialize detector: {e}")
+        return
+    
+    try:
+        predictor = ParkingSpotPredictor(
+            str(settings.get_model_path()),
+            resize_size=(settings.RESIZE_WIDTH, settings.RESIZE_HEIGHT)
+        )
+    except Exception as e:
+        logger.error(f"Failed to initialize predictor: {e}")
+        return
     
     processor = VideoProcessor(
         detector=detector,
@@ -40,8 +63,8 @@ def process_video(video_path: str, output_path: str = None, display: bool = True
     )
     
     # Initialize processor
-    if not processor.initialize(video_path=video_path):
-        logger.error("Failed to initialize processor")
+    if not processor.initialize(video_path=str(video_file)):
+        logger.error("Failed to initialize processor. Please check the error messages above.")
         return
     
     # Setup video writer if output path provided

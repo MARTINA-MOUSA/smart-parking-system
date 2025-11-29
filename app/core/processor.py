@@ -135,9 +135,58 @@ class VideoProcessor:
             if cap is not None:
                 self.cap = cap
             elif video_path:
+                # Check if file exists
+                video_file = Path(video_path)
+                if not video_file.exists():
+                    # Try to resolve relative path
+                    abs_path = video_file.resolve()
+                    if not abs_path.exists():
+                        error_msg = (
+                            f"Video file not found: {video_path}\n"
+                            f"Absolute path tried: {abs_path}\n"
+                            f"Please check:\n"
+                            f"  1. File exists at the specified path\n"
+                            f"  2. File path is correct (use forward slashes or raw string)\n"
+                            f"  3. File has proper permissions"
+                        )
+                        logger.error(error_msg)
+                        raise FileNotFoundError(error_msg)
+                    video_path = str(abs_path)
+                
+                # Try to open video
                 self.cap = cv2.VideoCapture(video_path)
                 if not self.cap.isOpened():
-                    raise ValueError(f"Failed to open video: {video_path}")
+                    # Get more details about the error
+                    error_code = self.cap.get(cv2.CAP_PROP_FOURCC)
+                    error_msg = (
+                        f"Failed to open video: {video_path}\n"
+                        f"This could be due to:\n"
+                        f"  1. Unsupported video codec\n"
+                        f"  2. Corrupted video file\n"
+                        f"  3. Missing codec libraries\n"
+                        f"  4. File is not a valid video file"
+                    )
+                    logger.error(error_msg)
+                    raise ValueError(error_msg)
+                
+                # Verify video properties
+                fps = self.cap.get(cv2.CAP_PROP_FPS)
+                frame_count = self.cap.get(cv2.CAP_PROP_FRAME_COUNT)
+                width = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+                height = self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+                
+                if fps <= 0 or frame_count <= 0:
+                    error_msg = f"Invalid video properties: FPS={fps}, Frames={frame_count}"
+                    logger.error(error_msg)
+                    self.cap.release()
+                    raise ValueError(error_msg)
+                
+                logger.info(
+                    f"Video opened successfully: {video_path}\n"
+                    f"  Resolution: {int(width)}x{int(height)}\n"
+                    f"  FPS: {fps:.2f}\n"
+                    f"  Total frames: {int(frame_count)}"
+                )
             else:
                 raise ValueError("Either video_path or cap must be provided")
             
@@ -149,8 +198,11 @@ class VideoProcessor:
             logger.info(f"Processor initialized with {len(self.spots)} spots")
             return True
         
-        except Exception as e:
+        except (FileNotFoundError, ValueError) as e:
             logger.error(f"Error initializing processor: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error initializing processor: {e}", exc_info=True)
             return False
     
     def process_frame(self, frame: Optional[np.ndarray] = None) -> Optional[np.ndarray]:
