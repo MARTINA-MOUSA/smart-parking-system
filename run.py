@@ -14,7 +14,11 @@ from app.utils.config import settings
 from app.utils.logger import setup_logger
 
 
-def process_video(video_path: str, output_path: str = None, display: bool = True):
+def process_video(
+    video_path: str,
+    output_path: str = None,
+    display: bool = True
+):
     """
     Process a video file and display results
     
@@ -23,14 +27,12 @@ def process_video(video_path: str, output_path: str = None, display: bool = True
         output_path: Optional path to save output video
         display: Whether to display video in window
     """
-    # Resolve video path
     video_file = Path(video_path)
     if not video_file.is_absolute():
         video_file = Path.cwd() / video_file
     
     logger.info(f"Starting video processing: {video_file}")
     
-    # Check if video file exists before initializing components
     if not video_file.exists():
         logger.error(
             f"Video file not found: {video_file}\n"
@@ -39,7 +41,6 @@ def process_video(video_path: str, output_path: str = None, display: bool = True
         )
         return
     
-    # Initialize components
     try:
         detector = ParkingSpotDetector(str(settings.get_mask_path()))
     except Exception as e:
@@ -62,12 +63,10 @@ def process_video(video_path: str, output_path: str = None, display: bool = True
         diff_threshold=settings.DIFF_THRESHOLD
     )
     
-    # Initialize processor
     if not processor.initialize(video_path=str(video_file)):
         logger.error("Failed to initialize processor. Please check the error messages above.")
         return
     
-    # Setup video writer if output path provided
     writer = None
     if output_path:
         cap = cv2.VideoCapture(video_path)
@@ -80,7 +79,6 @@ def process_video(video_path: str, output_path: str = None, display: bool = True
         writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
         logger.info(f"Output video will be saved to: {output_path}")
     
-    # Process video
     try:
         while True:
             frame = processor.process_frame()
@@ -88,11 +86,9 @@ def process_video(video_path: str, output_path: str = None, display: bool = True
             if frame is None:
                 break
             
-            # Write frame if writer available
             if writer:
                 writer.write(frame)
             
-            # Display frame
             if display:
                 cv2.namedWindow('Parking System', cv2.WINDOW_NORMAL)
                 cv2.imshow('Parking System', frame)
@@ -101,7 +97,6 @@ def process_video(video_path: str, output_path: str = None, display: bool = True
                     logger.info("Processing stopped by user")
                     break
         
-        # Print statistics
         stats = processor.get_statistics()
         logger.info(f"Processing complete. Statistics: {stats}")
     
@@ -118,11 +113,53 @@ def process_video(video_path: str, output_path: str = None, display: bool = True
 
 def main():
     """Main entry point"""
-    parser = argparse.ArgumentParser(description="Smart Parking System")
+    import sys
+    
+    processed_args = []
+    i = 0
+    while i < len(sys.argv):
+        arg = sys.argv[i]
+        processed_args.append(arg)
+        
+        if arg == "--video" and i + 1 < len(sys.argv):
+            i += 1
+            path_parts = []
+            while i < len(sys.argv):
+                next_arg = sys.argv[i]
+                if next_arg.startswith("--"):
+                    break
+                path_parts.append(next_arg)
+                i += 1
+            if path_parts:
+                processed_args.append(" ".join(path_parts))
+            continue
+        
+        i += 1
+    
+    sys.argv = processed_args
+    
+    parser = argparse.ArgumentParser(
+        description="Smart Parking System",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Process video (requires mask and model)
+  python run.py --video "data/videos/parking.mp4"
+  
+  # Process and save output
+  python run.py --video "data/videos/parking.mp4" --output outputs/result.mp4
+  
+  # Process without display
+  python run.py --video "data/videos/parking.mp4" --no-display
+  
+  # Start API server
+  python run.py --api
+        """
+    )
     parser.add_argument(
         "--video",
         type=str,
-        help="Path to input video file"
+        help="Path to input video file (paths with spaces are handled automatically)"
     )
     parser.add_argument(
         "--output",
@@ -156,7 +193,6 @@ def main():
             reload=settings.DEBUG
         )
     elif args.video:
-        # Process video
         process_video(
             args.video,
             output_path=args.output,

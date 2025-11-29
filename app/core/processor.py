@@ -106,18 +106,22 @@ class VideoProcessor:
     
     def _update_spot_statuses(self, frame: np.ndarray) -> None:
         """Update status for spots that need checking"""
+        from app.utils.config import settings
+        
         spots_to_check = self._get_spots_to_check()
+        confidence_threshold = getattr(settings, 'CONFIDENCE_THRESHOLD', 0.5)
         
         for spot_idx in spots_to_check:
             spot = self.spots[spot_idx]
             x1, y1, w, h = spot
-            
-            # Extract spot ROI
             spot_roi = frame[y1:y1 + h, x1:x1 + w, :]
             
             if spot_roi is not None and spot_roi.size > 0:
-                # Predict status
-                status = self.predictor.predict(spot_roi)
+                status = self.predictor.predict(spot_roi, confidence_threshold=confidence_threshold)
+                
+                if getattr(settings, 'INVERT_PREDICTION', False):
+                    status = not status
+                
                 self.spots_status[spot_idx] = status
     
     def initialize(self, video_path: Optional[str] = None, cap: Optional[cv2.VideoCapture] = None) -> bool:
@@ -135,41 +139,21 @@ class VideoProcessor:
             if cap is not None:
                 self.cap = cap
             elif video_path:
-                # Check if file exists
                 video_file = Path(video_path)
                 if not video_file.exists():
-                    # Try to resolve relative path
                     abs_path = video_file.resolve()
                     if not abs_path.exists():
-                        error_msg = (
-                            f"Video file not found: {video_path}\n"
-                            f"Absolute path tried: {abs_path}\n"
-                            f"Please check:\n"
-                            f"  1. File exists at the specified path\n"
-                            f"  2. File path is correct (use forward slashes or raw string)\n"
-                            f"  3. File has proper permissions"
-                        )
+                        error_msg = f"Video file not found: {video_path}"
                         logger.error(error_msg)
                         raise FileNotFoundError(error_msg)
                     video_path = str(abs_path)
                 
-                # Try to open video
                 self.cap = cv2.VideoCapture(video_path)
                 if not self.cap.isOpened():
-                    # Get more details about the error
-                    error_code = self.cap.get(cv2.CAP_PROP_FOURCC)
-                    error_msg = (
-                        f"Failed to open video: {video_path}\n"
-                        f"This could be due to:\n"
-                        f"  1. Unsupported video codec\n"
-                        f"  2. Corrupted video file\n"
-                        f"  3. Missing codec libraries\n"
-                        f"  4. File is not a valid video file"
-                    )
+                    error_msg = f"Failed to open video: {video_path}"
                     logger.error(error_msg)
                     raise ValueError(error_msg)
                 
-                # Verify video properties
                 fps = self.cap.get(cv2.CAP_PROP_FPS)
                 frame_count = self.cap.get(cv2.CAP_PROP_FRAME_COUNT)
                 width = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
@@ -227,21 +211,13 @@ class VideoProcessor:
             self.frame_number += 1
             self.total_frames += 1
             
-            # Process every Nth frame
             if self.frame_number % self.processing_step == 0:
                 self.processed_frames += 1
-                
-                # Update differences
                 if self.previous_frame is not None:
                     self._update_differences(frame)
-                
-                # Update spot statuses
                 self._update_spot_statuses(frame)
-                
-                # Update previous frame
                 self.previous_frame = frame.copy()
             
-            # Annotate frame
             annotated_frame = self._annotate_frame(frame.copy())
             
             return annotated_frame
@@ -263,26 +239,15 @@ class VideoProcessor:
         available_count = sum(1 for s in self.spots_status if s is True)
         total_count = len(self.spots_status)
         
-        # Draw rectangles for each spot
         for spot_idx, spot in enumerate(self.spots):
             x1, y1, w, h = spot
             status = self.spots_status[spot_idx]
-            
-            # Color: Green for empty, Red for occupied
             color = (0, 255, 0) if status else (0, 0, 255)
-            thickness = 2
-            
-            cv2.rectangle(frame, (x1, y1), (x1 + w, y1 + h), color, thickness)
+            cv2.rectangle(frame, (x1, y1), (x1 + w, y1 + h), color, 2)
         
-        # Draw info panel
-        panel_height = 80
-        cv2.rectangle(frame, (80, 20), (550, 20 + panel_height), (0, 0, 0), -1)
-        
+        cv2.rectangle(frame, (80, 20), (550, 100), (0, 0, 0), -1)
         text = f'Available spots: {available_count} / {total_count}'
-        cv2.putText(
-            frame, text, (100, 60),
-            cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2
-        )
+        cv2.putText(frame, text, (100, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
         
         return frame
     

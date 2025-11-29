@@ -46,12 +46,13 @@ class ParkingSpotPredictor:
             logger.error(f"Error loading model: {e}")
             raise
     
-    def predict(self, spot_image: np.ndarray) -> bool:
+    def predict(self, spot_image: np.ndarray, confidence_threshold: float = 0.5) -> bool:
         """
         Predict if a parking spot is empty or occupied
         
         Args:
             spot_image: BGR image of the parking spot
+            confidence_threshold: Minimum confidence to make a prediction (0-1)
             
         Returns:
             True if empty, False if occupied
@@ -60,21 +61,41 @@ class ParkingSpotPredictor:
             raise ValueError("Model not loaded. Call _load_model() first.")
         
         try:
-            # Resize image to model input size
+            if spot_image is None or spot_image.size == 0:
+                logger.warning("Empty spot image provided, defaulting to occupied")
+                return self.OCCUPIED
+            
             img_resized = resize(spot_image, (*self.resize_size, 3))
             
-            # Flatten image to feature vector
+            if img_resized.max() > 1.0:
+                img_resized = img_resized / 255.0
+            
             flat_data = img_resized.flatten().reshape(1, -1)
             
-            # Predict
-            prediction = self.model.predict(flat_data)[0]
-            
-            # Map prediction to boolean (0 = empty, 1 = occupied)
-            return self.EMPTY if prediction == 0 else self.OCCUPIED
+            if hasattr(self.model, 'predict_proba'):
+                probabilities = self.model.predict_proba(flat_data)[0]
+                empty_prob = probabilities[0]
+                occupied_prob = probabilities[1]
+                
+                if empty_prob >= confidence_threshold:
+                    return self.EMPTY
+                elif occupied_prob >= confidence_threshold:
+                    return self.OCCUPIED
+                else:
+                    return self.EMPTY if empty_prob > occupied_prob else self.OCCUPIED
+            else:
+                prediction = self.model.predict(flat_data)[0]
+                
+                if prediction == 0:
+                    return self.EMPTY
+                elif prediction == 1:
+                    return self.OCCUPIED
+                else:
+                    logger.warning(f"Unexpected prediction value: {prediction}, defaulting to occupied")
+                    return self.OCCUPIED
         
         except Exception as e:
-            logger.error(f"Error predicting spot status: {e}")
-            # Default to occupied on error (safer assumption)
+            logger.error(f"Error predicting spot status: {e}", exc_info=True)
             return self.OCCUPIED
     
     def predict_batch(self, spot_images: list) -> list:
@@ -92,6 +113,6 @@ class ParkingSpotPredictor:
             if img is not None:
                 predictions.append(self.predict(img))
             else:
-                predictions.append(self.OCCUPIED)  # Default to occupied if invalid
+                predictions.append(self.OCCUPIED)
         
         return predictions

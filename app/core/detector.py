@@ -48,7 +48,6 @@ class ParkingSpotDetector:
             raise ValueError("Mask not loaded. Call _load_mask() first.")
         
         try:
-            # Apply connected components analysis
             connected_components = cv2.connectedComponentsWithStats(
                 self.mask, 4, cv2.CV_32S
             )
@@ -56,13 +55,12 @@ class ParkingSpotDetector:
             (total_labels, label_ids, values, centroids) = connected_components
             
             spots = []
-            for i in range(1, total_labels):  # Skip background (label 0)
+            for i in range(1, total_labels):
                 x1 = int(values[i, cv2.CC_STAT_LEFT] * self.scale_coef)
                 y1 = int(values[i, cv2.CC_STAT_TOP] * self.scale_coef)
                 w = int(values[i, cv2.CC_STAT_WIDTH] * self.scale_coef)
                 h = int(values[i, cv2.CC_STAT_HEIGHT] * self.scale_coef)
                 
-                # Filter out very small regions (noise)
                 if w > 10 and h > 10:
                     spots.append((x1, y1, w, h))
             
@@ -88,7 +86,6 @@ class ParkingSpotDetector:
         try:
             x1, y1, w, h = spot
             
-            # Validate coordinates
             if (x1 < 0 or y1 < 0 or 
                 x1 + w > frame.shape[1] or 
                 y1 + h > frame.shape[0]):

@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     RESIZE_WIDTH: int = 15
     RESIZE_HEIGHT: int = 15
     
+    # Model Prediction
+    CONFIDENCE_THRESHOLD: float = 0.5
+    INVERT_PREDICTION: bool = False  # Set to True if model labels are reversed
+    
     # Model & Mask Paths
     MODEL_PATH: str = "./models/model.p"
     MASK_PATH: str = "./data/masks/mask_1920_1080.png"
