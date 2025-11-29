@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  parking-api:
+    build: .
+    container_name: smart-parking-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./logs:/app/logs
+      - ./outputs:/app/outputs
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+    env_file:
+      - .env
+    restart: unless-stopped
+

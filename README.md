@@ -1,0 +1,101 @@
+# Smart Parking System | نظام ذكي لمراقبة أماكن انتظار السيارات
+
+نظام احترافي لمراقبة أماكن انتظار السيارات داخل الجراجات تلقائيًا باستخدام معالجة الفيديو والذكاء الاصطناعي.
+
+## المميزات الرئيسية
+
+- 🔍 **تحليل فيديو مباشر**: معالجة الفيديو في الوقت الفعلي لتحديد الأماكن الفارغة والمشغولة
+- 📊 **تحديث لحظي**: تحديث حالة كل مكان بشكل فوري مع تتبع حركة السيارات
+- 📈 **إحصائيات مباشرة**: عرض عدد الأماكن المتاحة في كل لحظة
+- 🎯 **دقة عالية**: استخدام نماذج ML محسّنة للكشف الدقيق
+- 🚀 **API RESTful**: واجهة برمجية كاملة للتفاعل مع النظام
+- 💾 **قاعدة بيانات**: تخزين البيانات والإحصائيات التاريخية
+- 📱 **واجهة مستخدم**: Dashboard حديث لعرض البيانات
+
+## البنية التقنية
+
+```
+smart-parking-system/
+├── app/                    # التطبيق الرئيسي
+│   ├── api/               # API endpoints
+│   ├── core/              # Core modules
+│   │   ├── detector.py    # كشف أماكن الانتظار
+│   │   ├── predictor.py   # نموذج ML للتنبؤ
+│   │   └── processor.py   # معالجة الفيديو
+│   ├── db/                # Database models & operations
+│   ├── services/          # Business logic
+│   └── utils/             # Utilities
+├── config/                # Configuration files
+├── models/                # ML models storage
+├── tests/                 # Unit tests
+├── requirements.txt       # Python dependencies
+├── Dockerfile            # Docker configuration
+└── docker-compose.yml    # Docker compose setup
+```
+
+## التثبيت والإعداد
+
+### المتطلبات
+
+- Python 3.9+
+- OpenCV
+- NumPy
+- Scikit-learn
+- FastAPI
+- SQLite/PostgreSQL
+
+### التثبيت
+
+```bash
+# Clone the repository
+cd smart-parking-system
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### الإعداد
+
+1. انسخ ملف `.env.example` إلى `.env` وعدّل الإعدادات
+2. ضع ملف الـ mask في `data/masks/`
+3. ضع ملفات الفيديو في `data/videos/`
+4. ضع نموذج ML في `models/`
+
+## الاستخدام
+
+### تشغيل النظام
+
+```bash
+# Start the API server
+uvicorn app.main:app --reload --port 8000
+
+# Or using Docker
+docker-compose up -d
+```
+
+### API Endpoints
+
+- `GET /api/v1/status` - حالة النظام
+- `GET /api/v1/spots` - جميع أماكن الانتظار
+- `GET /api/v1/spots/{spot_id}` - مكان محدد
+- `GET /api/v1/statistics` - إحصائيات
+- `POST /api/v1/process` - بدء معالجة فيديو
+
+## التطوير
+
+```bash
+# Run tests
+pytest tests/
+
+# Run with coverage
+pytest --cov=app tests/
+```
+
+## الترخيص
+
+MIT License
+
